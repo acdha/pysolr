@@ -431,7 +431,10 @@ class Solr(object):
         """
         Extract the actual error message from a solr response.
         """
-        reason = headers.get('reason', None)
+        if hasattr(headers, 'reason'):
+            reason = headers.reason
+        else:
+            reason = headers.get('reason', None)
         full_html = None
 
         if reason is None:
