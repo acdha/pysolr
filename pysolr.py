@@ -326,7 +326,9 @@ class Solr(object):
             if int(headers['status']) != 200:
                 error_message = self._extract_error(headers, response)
                 self.log.error(error_message, extra={'data': {'headers': headers,
-                                                              'response': response}})
+                                                              'response': response,
+                                                              'status': headers.status,
+                                                              'reason': headers.reason}})
                 raise SolrError(error_message)
 
             return response
