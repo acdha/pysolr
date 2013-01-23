@@ -345,6 +345,20 @@ class SolrTestCase(unittest.TestCase):
         self.assertEqual(len(self.solr.search('doc')), 5)
         self.assertEqual(len(self.solr.search('example')), 3)
 
+    def test_add_with_boost(self):
+        self.assertEqual(len(self.solr.search('doc')), 3)
+
+        self.solr.add([
+            {
+                'id': 'doc_6',
+                'title': 'Newly added doc',
+            },
+        ], boost={'title': 2.0})
+
+        res = self.solr.search('doc')
+        self.assertEqual(len(res), 4)
+        self.assertEqual('doc_6', res[0]['id'])
+
     def test_delete(self):
         self.assertEqual(len(self.solr.search('doc')), 3)
         self.solr.delete(id='doc_1')
