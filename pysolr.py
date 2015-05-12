@@ -1,16 +1,16 @@
 # -*- coding: utf-8 -*-
-from __future__ import print_function
-from __future__ import unicode_literals
-from __future__ import absolute_import
+from __future__ import absolute_import, print_function, unicode_literals
 
-import os
+import ast
 import datetime
 import logging
+import os
 import re
-import requests
 import time
 import types
-import ast
+from functools import wraps
+
+import requests
 
 try:
     # Prefer lxml, if installed.
@@ -49,6 +49,11 @@ except NameError:
     unicode_char = chr
     # Ugh.
     long = int
+
+try:
+    from http.client import IncompleteRead
+except ImportError:
+    from httplib import IncompleteRead
 
 
 __author__ = 'Daniel Lindsley, Joseph Kocherhans, Jacob Kaplan-Moss'
@@ -209,6 +214,24 @@ def clean_xml_string(s):
     return ''.join(c for c in s if is_valid_xml_char_ordinal(ord(c)))
 
 
+def retry_incomplete_read(f):
+    """
+    The version of urllib3 shipped with requests 2.7 is incompatible with multiprocessing
+    and will raise IncompleteRead, apparently due to sharing a single HTTP connection across multiple
+    processes
+    """
+
+    @wraps(f)
+    def inner(self, *args, **kwargs):
+        try:
+            return f(self, *args, **kwargs)
+        except IncompleteRead:
+            logging.warning('Retrying IncompleteRead', exc_info=True)
+            self.session = requests.Session()
+            return f(self, *args, **kwargs)
+
+    return inner
+
 class SolrError(Exception):
     pass
 
@@ -269,6 +292,7 @@ class Solr(object):
         # No path? No problem.
         return self.url
 
+    @retry_incomplete_read
     def _send_request(self, method, path='', body=None, headers=None, files=None):
         url = self._create_full_url(path)
         method = method.lower()
@@ -291,14 +315,14 @@ class Solr(object):
         except AttributeError as err:
             raise SolrError("Unable to send HTTP method '{0}.".format(method))
 
+        # Everything except the body can be Unicode. The body must be
+        # encoded to bytes to work properly on Py3.
+        bytes_body = body
+
+        if bytes_body is not None:
+            bytes_body = force_bytes(body)
+
         try:
-            # Everything except the body can be Unicode. The body must be
-            # encoded to bytes to work properly on Py3.
-            bytes_body = body
-
-            if bytes_body is not None:
-                bytes_body = force_bytes(body)
-
             resp = requests_method(url, data=bytes_body, headers=headers, files=files,
                                    timeout=self.timeout)
         except requests.exceptions.Timeout as err:
