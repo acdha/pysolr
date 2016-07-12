@@ -10,6 +10,8 @@ from pysolr import (NESTED_DOC_KEY, Results, Solr, SolrError, clean_xml_string,
                     force_bytes, force_unicode, json, safe_urlencode, sanitize,
                     unescape_html)
 
+from .utils import get_solr_url
+
 try:
     from unittest.mock import Mock
 except ImportError:
@@ -231,10 +233,10 @@ class SolrTestCase(unittest.TestCase):
         return self.assertEqual(URL, '%s/%s' % (self.solr.url.replace('/core0', ''), path))
 
     def get_solr(self, collection, timeout=60):
-        return Solr('http://localhost:8983/solr/%s' % collection, timeout=timeout)
+        return Solr('%s%s' % (get_solr_url(), collection), timeout=timeout)
 
     def test_init(self):
-        self.assertEqual(self.solr.url, 'http://localhost:8983/solr/core0')
+        self.assertEqual(self.solr.url, '%score0' % get_solr_url())
         self.assertTrue(isinstance(self.solr.decoder, json.JSONDecoder))
         self.assertEqual(self.solr.timeout, 60)
 
@@ -242,7 +244,7 @@ class SolrTestCase(unittest.TestCase):
         self.assertEqual(custom_solr.timeout, 17)
 
     def test_custom_results_class(self):
-        solr = Solr('http://localhost:8983/solr/core0', results_cls=dict)
+        solr = Solr('%score0' % get_solr_url(), results_cls=dict)
 
         results = solr.search(q='*:*')
         assert isinstance(results, dict)
@@ -281,7 +283,7 @@ class SolrTestCase(unittest.TestCase):
 
     def test_send_request_to_bad_core(self):
         # Test a bad core on a valid URL:
-        self.solr.url = 'http://localhost:8983/solr/bad_core'
+        self.solr.url = '%sbad_core' % get_solr_url()
         self.assertRaises(SolrError, self.solr._send_request, 'get', 'select/?q=doc&wt=json')
 
     def test__select(self):
@@ -743,11 +745,14 @@ class SolrTestCase(unittest.TestCase):
         self.assertEqual(['Test Title ☃☃'], m['title'])
 
     def test_full_url(self):
-        self.solr.url = 'http://localhost:8983/solr/core0'
+        solr_url = get_solr_url()
+        assert solr_url.endswith('/')
+
+        self.solr.url = '%score0' % solr_url
         full_url = self.solr._create_full_url(path='/update')
 
-        # Make sure trailing and leading slashes do not collide:
-        self.assertEqual(full_url, 'http://localhost:8983/solr/core0/update')
+        # Make sure trailing and leading slashes do not produce a duplicate. The only // should be http://
+        self.assertEqual(full_url.count('//'), 1)
 
     def test_request_handler(self):
         before_test_use_qt_param = self.solr.use_qt_param

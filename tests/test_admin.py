@@ -5,11 +5,13 @@ import unittest
 
 from pysolr import SolrCoreAdmin
 
+from .utils import get_solr_url
+
 
 class SolrCoreAdminTestCase(unittest.TestCase):
     def setUp(self):
         super(SolrCoreAdminTestCase, self).setUp()
-        self.solr_admin = SolrCoreAdmin('http://localhost:8983/solr/admin/cores')
+        self.solr_admin = SolrCoreAdmin('%sadmin/cores' % get_solr_url())
 
     def test_status(self):
         self.assertTrue('name="defaultCoreName"' in self.solr_admin.status())

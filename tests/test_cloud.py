@@ -6,6 +6,7 @@ import unittest
 from pysolr import SolrCloud, SolrError, ZooKeeper, json
 
 from .test_client import SolrTestCase
+from .utils import get_solr_url
 
 try:
     from kazoo.client import KazooClient
